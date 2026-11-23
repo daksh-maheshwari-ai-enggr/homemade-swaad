@@ -1,19 +1,17 @@
 import { useGetMenuQuery } from '../store/store';
-import { useDispatch } from 'react-redux';
-import { setCredentials } from '../store/authSlice';
 
-interface MenuItemCard {
+interface MenuItem {
   id: number;
   name: string;
   description?: string | null;
   price: number;
   imageUrl?: string | null;
   category: string;
+  available: boolean;
 }
 
 export function RestaurantMenu() {
   const { data: menu, isLoading, error } = useGetMenuQuery();
-  const dispatch = useDispatch();
 
   if (isLoading) return <div className="text-center py-8">Loading menu...</div>;
   if (error) return <div className="text-center py-8 text-red-500">Error loading menu</div>;
@@ -28,7 +26,7 @@ export function RestaurantMenu() {
         <div key={category} className="mb-8">
           <h3 className="text-xl font-semibold mb-4">{category}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {menu?.filter((item) => item.category === category).map((item) => (
+            {menu?.filter((item) => item.category === category && item.available).map((item) => (
               <MenuItemCard key={item.id} item={item} />
             ))}
           </div>
@@ -38,11 +36,8 @@ export function RestaurantMenu() {
   );
 }
 
-function MenuItemCard({ item }: { item: MenuItemCard }) {
-  const dispatch = useDispatch();
-
+function MenuItemCard({ item }: { item: MenuItem }) {
   const handleOrder = () => {
-    // Dispatch order action (would integrate with RTK Query)
     alert('Order placed! (demo)');
   };
 
@@ -60,11 +55,11 @@ function MenuItemCard({ item }: { item: MenuItemCard }) {
       <div className="flex gap-2">
         <button
           onClick={handleOrder}
-          className="flex-1 btn btn-primary"
+          className="flex-1 py-2 bg-primary text-white rounded font-semibold hover:bg-primary/90 transition-colors"
         >
           Order
         </button>
-        <button className="flex-1 btn btn-secondary">
+        <button className="flex-1 py-2 bg-gray-100 text-gray-700 rounded font-semibold hover:bg-gray-200 transition-colors">
           Add
         </button>
       </div>
