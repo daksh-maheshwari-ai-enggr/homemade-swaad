@@ -35,7 +35,8 @@ export async function rateLimit(key: string): Promise<boolean> {
       bucket.lastRefill = now - (timePassed % REFILL_INTERVAL);
     }
   } else {
-    bucket = { tokens: MAX_TOKENS - 1, lastRefill: now };
+    // Brand new bucket starts full; the token for this request is consumed below.
+    bucket = { tokens: MAX_TOKENS, lastRefill: now };
     tokenBuckets.set(key, bucket);
   }
 

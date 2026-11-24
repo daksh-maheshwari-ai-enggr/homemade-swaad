@@ -1,32 +1,35 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { 
-  useVerifyOTPMutation, 
-  useSendOTPMutation 
-} from '../../store/store';
+import { useVerifyOTPMutation, useSendOTPMutation } from '../../store/store';
+import { useAppDispatch } from '../../store/hooks';
+import { setCredentials } from '../../store/authSlice';
 
 interface OtpPageProps {
   mode?: 'login' | 'register' | 'password-reset';
-  email?: string;
-  onSuccess?: () => void;
 }
 
-export function OtpPage({ 
-  mode = 'login', 
-  email: initialEmail = '',
-  onSuccess 
-}: OtpPageProps) {
-  const [email, setEmail] = useState(initialEmail);
+/** Pull a readable message out of an RTK Query error. */
+function errorMessage(error: unknown, fallback: string): string {
+  const data = (error as { data?: { message?: string; error?: string } })?.data;
+  return data?.message || data?.error || fallback;
+}
+
+export function OtpPage({ mode = 'login' }: OtpPageProps) {
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'email' | 'verify'>('email');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState('');
   const [verifyOtp] = useVerifyOTPMutation();
-  const [resendOtp] = useSendOTPMutation();
+  const [sendOtp] = useSendOTPMutation();
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
 
   // Get email from location state if available
   useEffect(() => {
-    const state = location.state as { email?: string };
+    const state = location.state as { email?: string } | null;
     if (state?.email) {
       setEmail(state.email);
       setStep('verify');
@@ -35,31 +38,34 @@ export function OtpPage({
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await resendOtp({ email }).unwrap();
-    if (result.success) {
+    setError('');
+    setStatus('');
+    setLoading(true);
+    try {
+      await sendOtp({ email }).unwrap();
       setStep('verify');
-    } else {
-      alert(result.message || 'Failed to send OTP');
+      setStatus(`OTP sent to ${email}`);
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to send OTP. Please try again.'));
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setStatus('');
+    setLoading(true);
     try {
       const result = await verifyOtp({ email, code: otp }).unwrap();
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        localStorage.setItem('token', result.token);
-        navigate('/');
-      }
-    } catch (error) {
-      alert('Invalid or expired OTP');
+      dispatch(setCredentials({ token: result.token, user: result.user }));
+      navigate('/', { replace: true });
+    } catch (err) {
+      setError(errorMessage(err, 'Invalid or expired OTP'));
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const handleResend = async () => {
-    await handleSendOtp({} as React.FormEvent);
   };
 
   return (
@@ -70,35 +76,49 @@ export function OtpPage({
             {mode === 'login' ? 'Welcome Back' : mode === 'register' ? 'Complete Registration' : 'Reset Password'}
           </h1>
           <p className="text-gray-600">
-            {mode === 'login' 
-              ? 'Enter the OTP sent to your email' 
-              : mode === 'register' 
+            {mode === 'login'
+              ? 'Enter the OTP sent to your email'
+              : mode === 'register'
                 ? 'Verify your email to complete registration'
-                : 'Enter the OTP to reset your password'
-            }
+                : 'Enter the OTP to reset your password'}
           </p>
         </div>
+
+        {error && (
+          <div className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {status && !error && (
+          <div className="mb-6 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+            {status}
+          </div>
+        )}
 
         {step === 'email' && (
           <form onSubmit={handleSendOtp} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="otp-page-email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
               </label>
               <input
+                id="otp-page-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
                 placeholder="you@example.com"
+                autoComplete="email"
                 required
               />
             </div>
             <button
               type="submit"
-              className="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+              disabled={loading}
+              className="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
             >
-              Send OTP
+              {loading ? 'Sending OTP…' : 'Send OTP'}
             </button>
           </form>
         )}
@@ -108,8 +128,9 @@ export function OtpPage({
             <div>
               <input
                 type="text"
+                inputMode="numeric"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-center text-2xl tracking-wider"
                 placeholder="6 digits"
                 maxLength={6}
@@ -119,14 +140,16 @@ export function OtpPage({
             </div>
             <button
               type="submit"
-              className="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+              disabled={loading}
+              className="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
             >
-              Verify
+              {loading ? 'Verifying…' : 'Verify'}
             </button>
             <button
               type="button"
-              onClick={handleResend}
-              className="w-full py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              onClick={() => handleSendOtp({ preventDefault() {} } as React.FormEvent)}
+              disabled={loading}
+              className="w-full py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-60"
             >
               Resend OTP
             </button>

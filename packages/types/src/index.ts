@@ -10,6 +10,17 @@ export interface User {
   updatedAt: Date;
 }
 
+// User returned by the auth endpoints (dates are ISO strings over JSON)
+export interface AuthUser {
+  id: string;
+  email: string;
+  phone?: string;
+  name?: string;
+  role: UserRole;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Menu types
 export interface MenuItem {
   id: number;

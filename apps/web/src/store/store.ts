@@ -22,5 +22,9 @@ export {
   useGetOrdersQuery,
   useSendOTPMutation,
   useVerifyOTPMutation,
+  useLoginWithPasswordMutation,
   useRequestPasswordResetMutation,
+  useConfirmPasswordResetMutation,
 } from './apiSlice';
+
+export { setCredentials, updateUser, logout } from './authSlice';

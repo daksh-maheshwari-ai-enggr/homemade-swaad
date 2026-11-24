@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes';
+import { warmUpMailer } from './utils/emailService';
 
 dotenv.config();
 
@@ -42,6 +43,8 @@ const PORT = process.env.PORT || 4000;
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
+    // Pre-open the SMTP connection so the first OTP is not delayed by ~4s.
+    void warmUpMailer();
   });
 }
 

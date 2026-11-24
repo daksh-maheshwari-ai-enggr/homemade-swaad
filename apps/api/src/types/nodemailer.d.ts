@@ -1,6 +1,10 @@
 declare module 'nodemailer' {
   export interface Transporter {
     sendMail(mail: MailOptions): Promise<SendMailResult>;
+    /** Checks the SMTP connection (used as a boot-time health check). */
+    verify(): Promise<boolean>;
+    /** Closes all pooled connections. */
+    close(): void;
   }
 
   export interface MailOptions {
